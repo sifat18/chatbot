@@ -1,11 +1,14 @@
 const { Client } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const client = new Client();
+const fs = require('fs');
 
-client.on('qr', qr => {
-    qrcode.generate(qr, { small: true });
-});
-
+const SESSION_FILE_PATH = './session.json';
+let sessionCfg;
+if (fs.existsSync(SESSION_FILE_PATH)) {
+    sessionCfg = require(SESSION_FILE_PATH);
+}
+const client = new Client({ puppeteer: { headless: false }, session: sessionCfg });
+// const client = new Client()
 // client.on('ready', async () => {
 //     console.log('Client is ready!');
 //     const chat = await client.getChats();
@@ -16,7 +19,26 @@ client.on('qr', qr => {
 // client.on('message', message => {
 //     console.log(message.body);
 // });
-// client.initialize();
+client.initialize();
+
+client.on('qr', qr => {
+    qrcode.generate(qr, { small: true });
+});
+
+client.on('authenticated', (session) => {
+    console.log('AUTHENTICATED', session);
+    sessionCfg = session;
+    fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
+        if (err) {
+            console.error(err);
+        }
+    });
+});
+
+client.on('auth_failure', msg => {
+    // Fired if session restore was unsuccessfull
+    console.error('AUTHENTICATION FAILURE', msg);
+});
 
 client.on('ready', () => {
     console.log('Client is ready!');
@@ -38,11 +60,13 @@ client.on('ready', () => {
 client.on('message', async message => {
     if (message.hasMedia) {
         const media = await message.downloadMedia();
-        console.log(media);
+        // console.log(media);
+        client.sendMessage(message.from, 'ok got it');
+
     }
     if (message.body) {
         client.sendMessage(message.from, 'send the videos and images');
     }
 });
 
-client.initialize();
+// client.initialize();
