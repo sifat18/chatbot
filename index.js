@@ -1,7 +1,7 @@
 const { Client } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
-
+const chatData={};
 const SESSION_FILE_PATH = './session.json';
 let sessionCfg;
 if (fs.existsSync(SESSION_FILE_PATH)) {
@@ -44,7 +44,7 @@ client.on('ready', () => {
     console.log('Client is ready!');
 
     // Number where you want to send the message.
-    const number = "+8801911178585";
+    const number = "+8801881997646";
 
     // Your message.
     const text = "what is the update?";
@@ -58,15 +58,46 @@ client.on('ready', () => {
 });
 
 client.on('message', async message => {
-    if (message.hasMedia) {
+   
+    if (message.hasMedia) { 
         const media = await message.downloadMedia();
         // console.log(media);
-        client.sendMessage(message.from, 'ok got it');
+        client.sendMessage(message.from, 'ok got the attachment');
+        chatData["media"] = media;
 
+        // fs.writeFile(
+        //     "./upload/" + media.filename,
+        //     media.data,
+        //     "base64",
+        //     function (err) {
+        //       if (err) {
+        //         console.log(err);
+        //       }
+        //     }
+        //   );
+// trial
+
+    } 
+    else if (message.body.startsWith('Yes')) {
+        client.sendMessage(message.from, 'send attachments');
     }
-    if (message.body) {
-        client.sendMessage(message.from, 'send the videos and images');
+// trial
+
+    else if (message.body.startsWith('No')) {
+        client.sendMessage(message.from, 'ok got it');
+    }
+// trial
+
+    else if (message.body) {
+        chatData["update"] = message.body;
+        client.sendMessage(message.from, 'have attachments?');
     }
 });
+// new added
+client.on('change_state', state => {
+    console.log('CHANGE STATE', state );
+});
 
-// client.initialize();
+client.on('disconnected', (reason) => {
+    console.log('Client was logged out', reason);
+});
