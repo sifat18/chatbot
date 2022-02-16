@@ -65,9 +65,6 @@ client.on('ready', () => {
     client.sendMessage(chatId, text);
 });
 let extension;
-// image files types
-// const imageExtentions = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '',]
-// video file types
 // responses
 client.on('message', async message => {
 
