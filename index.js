@@ -1,8 +1,12 @@
 const { Client } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
-const chatData={};
+const { v4: uuidv4 } = require('uuid');
+// creating object
+const chatData = { 'update': '' };
 const SESSION_FILE_PATH = './session.json';
+
+// holding the session info
 let sessionCfg;
 if (fs.existsSync(SESSION_FILE_PATH)) {
     sessionCfg = require(SESSION_FILE_PATH);
@@ -21,10 +25,12 @@ const client = new Client({ puppeteer: { headless: false }, session: sessionCfg 
 // });
 client.initialize();
 
+// generate qr
 client.on('qr', qr => {
     qrcode.generate(qr, { small: true });
 });
 
+// authentication via qr
 client.on('authenticated', (session) => {
     console.log('AUTHENTICATED', session);
     sessionCfg = session;
@@ -34,17 +40,19 @@ client.on('authenticated', (session) => {
         }
     });
 });
+// authentication failure
 
 client.on('auth_failure', msg => {
     // Fired if session restore was unsuccessfull
     console.error('AUTHENTICATION FAILURE', msg);
 });
 
+// ready for chatting
 client.on('ready', () => {
     console.log('Client is ready!');
 
     // Number where you want to send the message.
-    const number = "+8801881997646";
+    const number = "+8801911178585";
 
     // Your message.
     const text = "what is the update?";
@@ -56,46 +64,60 @@ client.on('ready', () => {
     // Sending message.
     client.sendMessage(chatId, text);
 });
-
+let extension;
+// image files types
+// const imageExtentions = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '',]
+// video file types
+// responses
 client.on('message', async message => {
-   
-    if (message.hasMedia) { 
+
+    if (message.hasMedia) {
         const media = await message.downloadMedia();
         // console.log(media);
         client.sendMessage(message.from, 'ok got the attachment');
         chatData["media"] = media;
+        let fileName;
+        if (media.filename === undefined) {
+            extension = media.mimetype.includes("audio/ogg; codecs=opus") ? `mp3` : `${media.mimetype.split('/')[1]}`
+            media.filename = uuidv4() + "." + extension
+        }
+        console.log('got it')
+        console.log(chatData)
 
-        // fs.writeFile(
-        //     "./upload/" + media.filename,
-        //     media.data,
-        //     "base64",
-        //     function (err) {
-        //       if (err) {
-        //         console.log(err);
-        //       }
-        //     }
-        //   );
-// trial
+        fs.writeFile(
+            "./upload/" + media.filename,
+            media.data,
+            "base64",
+            function (err) {
+                if (err) {
+                    console.log(err);
+                }
+            }
+        );
+        // trial
 
-    } 
+    }
     else if (message.body.startsWith('Yes')) {
         client.sendMessage(message.from, 'send attachments');
     }
-// trial
+    // trial
 
     else if (message.body.startsWith('No')) {
         client.sendMessage(message.from, 'ok got it');
     }
-// trial
+    // trial
 
     else if (message.body) {
-        chatData["update"] = message.body;
-        client.sendMessage(message.from, 'have attachments?');
+        chatData["update"] = chatData["update"] + message.body;
+        console.log(chatData);
+        setTimeout(() => {
+            client.sendMessage(message.from, 'have attachments?');
+        }, 5000)
     }
 });
 // new added
 client.on('change_state', state => {
-    console.log('CHANGE STATE', state );
+    console.log('CHANGE STATE', state);
 });
 
 client.on('disconnected', (reason) => {
