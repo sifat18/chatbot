@@ -1,9 +1,51 @@
+require('dotenv').config()
 const { Client } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const Airtable = require('airtable');
+Airtable.configure({
+    endpointUrl: 'https://api.airtable.com',
+    apiKey: process.env.AIRTABLE_KEY
+});
+const base = Airtable.base(process.env.AIRTABLE_BASE);
+
+
+// airtable
+const uploadToAirTable = async () => {
+    base('Project tracker').create([
+        {
+            "fields": {
+                Name: chatData['name'],
+                Update: chatData['update'],
+                Issue: chatData['issue'],
+                Observation: chatData['observation'],
+                // Attachments:
+                //     [
+                //         {
+                //             "id": uuidv4(),
+                //             "size": 26317,
+                //             "url": chatData['media'].data,
+                //             "type": "image/jpeg",
+                //             "filename": chatData['media'].filename,
+                //         }
+                //     ]
+            }
+        }
+    ], { typecast: true }, function (err, records) {
+        if (err) {
+            console.error(err);
+            return;
+        }
+        records.forEach(function (record) {
+            console.log(record.getId());
+        });
+    });
+}
+
+
 // creating object
-const chatData = { 'update': '' };
+const chatData = { 'name': '', 'update': '', 'issue': '', 'observation': '' };
 const SESSION_FILE_PATH = './session.json';
 
 // holding the session info
@@ -55,7 +97,7 @@ client.on('ready', () => {
     const number = "+8801911178585";
 
     // Your message.
-    const text = "what is the update?";
+    const text = "Hi, What's your name?";
 
     // Getting chatId from the number.
     // we have to delete "+" from the beginning and add "@c.us" at the end of the number.
@@ -71,15 +113,15 @@ client.on('message', async message => {
     if (message.hasMedia) {
         const media = await message.downloadMedia();
         // console.log(media);
-        client.sendMessage(message.from, 'ok got the attachment');
-        chatData["media"] = media;
+        client.sendMessage(message.from, 'If you came across any issues please write on that.');
         let fileName;
         if (media.filename === undefined) {
             extension = media.mimetype.includes("audio/ogg; codecs=opus") ? `mp3` : `${media.mimetype.split('/')[1]}`
             media.filename = uuidv4() + "." + extension
         }
         console.log('got it')
-        console.log(chatData)
+        // console.log(chatData)
+        chatData["media"] = media;
 
         fs.writeFile(
             "./upload/" + media.filename,
@@ -95,21 +137,56 @@ client.on('message', async message => {
 
     }
     else if (message.body.startsWith('Yes')) {
-        client.sendMessage(message.from, 'send attachments');
+        client.sendMessage(message.from, 'what are they?');
+    }
+    else if (message.body.startsWith('Name')) {
+        const token = message.body.split(':')[1];
+
+        chatData['name'] = token;
+        client.sendMessage(message.from, "What's the project progress today");
     }
     // trial
 
     else if (message.body.startsWith('No')) {
-        client.sendMessage(message.from, 'ok got it');
+        client.sendMessage(message.from, 'Thank you');
+        uploadToAirTable()
+        setTimeout(() => {
+            process.exit(0)
+
+        }, 15000)
+    }
+
+    else if (message.body.startsWith('Issue')) {
+        const token = message.body.split(':')[1];
+
+        chatData['issue'] = token;
+        // console.log(chatData);
+
+        client.sendMessage(message.from, 'Do you have any observation to add');
+    }
+    else if (message.body.startsWith('Observation')) {
+        const token = message.body.split(':')[1];
+
+        chatData['observation'] = token;
+        // console.log(chatData);
+
+        client.sendMessage(message.from, 'Thank you');
+        uploadToAirTable()
+
+        setTimeout(() => {
+            process.exit(0)
+
+        }, 15000)
     }
     // trial
 
     else if (message.body) {
-        chatData["update"] = chatData["update"] + message.body;
-        console.log(chatData);
-        setTimeout(() => {
-            client.sendMessage(message.from, 'have attachments?');
-        }, 5000)
+        chatData["update"] = message.body;
+        // console.log(chatData);
+        client.sendMessage(message.from, "please send some images from today's progress.");
+
+        // setTimeout(() => {
+        // }, 5000)
     }
 });
 // new added
