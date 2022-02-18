@@ -4,6 +4,7 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const Airtable = require('airtable');
+const { PDFDocument, StandardFonts } = require("pdf-lib");
 Airtable.configure({
     endpointUrl: 'https://api.airtable.com',
     apiKey: process.env.AIRTABLE_KEY
@@ -44,6 +45,83 @@ const uploadToAirTable = async () => {
 }
 
 
+// generating pdf 
+async function makePdf() {
+    // Create a new document and add a new page
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage();
+
+    const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+
+    // Get the width and height of the page
+    const { width, height } = page.getSize();
+
+    // Draw a string of text toward the top of the page
+    const fontSize = 30;
+    page.drawText("{Project progress report", {
+        x: 50,
+        y: height - 4 * fontSize,
+        size: fontSize,
+        font: timesRomanFont,
+        // color: 'black',
+    });
+
+    page.drawText(chatData['name'], {
+        x: 50,
+        y: height - 5 * fontSize - 5,
+        size: fontSize,
+        font: timesRomanFont,
+        // color: rgb(0, 0.53, 0.71),
+    });
+    page.drawText(chatData['update'], {
+        x: 50,
+        y: height - 6 * fontSize - 5,
+        size: fontSize,
+        font: timesRomanFont,
+        // color: rgb(0, 0.53, 0.71),
+    });
+    page.drawText(chatData['observation'], {
+        x: 50,
+        y: height - 7 * fontSize - 5,
+        size: fontSize,
+        font: timesRomanFont,
+        // color: rgb(0, 0.53, 0.71),
+    });
+    page.drawText(chatData['issue'], {
+        x: 50,
+        y: height - 8 * fontSize - 5,
+        size: fontSize,
+        font: timesRomanFont,
+        // color: rgb(0, 0.53, 0.71),
+    });
+    // Load the image and store it as a Node.js buffer in memory
+    // let img = fs.readFileSync(chatData['media'].data);
+    const page2 = pdfDoc.addPage();
+    let img = await pdfDoc.embedJpg(chatData['media'].data);
+    const jpgDims = img.scale(0.25)
+    // // Draw the image on the center of the page
+    // const { width2, height2 } = img.scale(1);
+    page2.drawImage(img, {
+        x: page.getWidth() / 2 - jpgDims.width / 2,
+        y: page.getHeight() / 2 - jpgDims.height / 2,
+        width: jpgDims.width,
+        height: jpgDims.height,
+
+    });
+    // Write the PDF to a file
+    // fs.writeFileSync("./upload/test.pdf", await pdfDoc.save());
+    fs.writeFile(
+        "./upload/" + uuidv4() + '.pdf',
+        await pdfDoc.save(),
+        "base64",
+        function (err) {
+            if (err) {
+                console.log(err);
+            }
+        }
+    );
+}
+
 // creating object
 const chatData = { 'name': '', 'update': '', 'issue': '', 'observation': '' };
 const SESSION_FILE_PATH = './session.json';
@@ -74,7 +152,7 @@ client.on('qr', qr => {
 
 // authentication via qr
 client.on('authenticated', (session) => {
-    console.log('AUTHENTICATED', session);
+    // console.log('AUTHENTICATED', session);
     sessionCfg = session;
     fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
         if (err) {
@@ -149,6 +227,7 @@ client.on('message', async message => {
 
     else if (message.body.startsWith('No')) {
         client.sendMessage(message.from, 'Thank you');
+        makePdf()
         uploadToAirTable()
         setTimeout(() => {
             process.exit(0)
