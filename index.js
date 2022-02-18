@@ -172,7 +172,7 @@ client.on('ready', () => {
     console.log('Client is ready!');
 
     // Number where you want to send the message.
-    const number = "+8801911178585";
+    const number = "+8801534621561";
 
     // Your message.
     const text = "Hi, What's your name?";
