@@ -1,3 +1,4 @@
+// importing necessary files
 require('dotenv').config()
 const { Client } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
@@ -5,6 +6,8 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const Airtable = require('airtable');
 const { PDFDocument, StandardFonts } = require("pdf-lib");
+
+// airtable config
 Airtable.configure({
     endpointUrl: 'https://api.airtable.com',
     apiKey: process.env.AIRTABLE_KEY
@@ -21,6 +24,7 @@ const uploadToAirTable = async () => {
                 Update: chatData['update'],
                 Issue: chatData['issue'],
                 Observation: chatData['observation'],
+                URL: chatData['link'],
                 // Attachments:
                 //     [
                 //         {
@@ -58,58 +62,65 @@ async function makePdf() {
 
     // Draw a string of text toward the top of the page
     const fontSize = 30;
-    page.drawText("{Project progress report", {
+    page.drawText(`Project Progress Report From ${chatData['name']}`, {
         x: 50,
         y: height - 4 * fontSize,
         size: fontSize,
         font: timesRomanFont,
-        // color: 'black',
     });
 
-    page.drawText(chatData['name'], {
-        x: 50,
-        y: height - 5 * fontSize - 5,
-        size: fontSize,
-        font: timesRomanFont,
-        // color: rgb(0, 0.53, 0.71),
-    });
-    page.drawText(chatData['update'], {
+    page.drawText(`Update Text: ${chatData['update']}`, {
         x: 50,
         y: height - 6 * fontSize - 5,
-        size: fontSize,
+        size: fontSize - 10,
         font: timesRomanFont,
-        // color: rgb(0, 0.53, 0.71),
     });
-    page.drawText(chatData['observation'], {
+    page.drawText(`Observation Text:${chatData['observation']}`, {
         x: 50,
         y: height - 7 * fontSize - 5,
-        size: fontSize,
+        size: fontSize - 10,
         font: timesRomanFont,
-        // color: rgb(0, 0.53, 0.71),
     });
-    page.drawText(chatData['issue'], {
+    page.drawText(`Issue Text:${chatData['issue']}`, {
         x: 50,
         y: height - 8 * fontSize - 5,
-        size: fontSize,
+        size: fontSize - 10,
         font: timesRomanFont,
-        // color: rgb(0, 0.53, 0.71),
     });
+    page.drawText(`Link :${chatData['link']}`, {
+        x: 50,
+        y: height - 9 * fontSize - 5,
+        size: fontSize - 10,
+        font: timesRomanFont,
+    });
+
     // Load the image and store it as a Node.js buffer in memory
-    // let img = fs.readFileSync(chatData['media'].data);
-    const page2 = pdfDoc.addPage();
-    let img = await pdfDoc.embedJpg(chatData['media'].data);
-    const jpgDims = img.scale(0.25)
+    chatData['media'].forEach(async images => {
+        let page2 = pdfDoc.addPage();
+        let img = await pdfDoc.embedJpg(images.data);
+        let jpgDims = img.scale(0.25)
+        page2.drawImage(img, {
+            x: page2.getWidth() / 2 - jpgDims.width / 2,
+            y: page2.getHeight() / 2 - jpgDims.height / 2,
+            width: jpgDims.width,
+            height: jpgDims.height,
+
+        });
+    })
+    // const page2 = pdfDoc.addPage();
+    // let img = await pdfDoc.embedJpg(chatData['media'].data);
+
+    // const jpgDims = img.scale(0.25)
     // // Draw the image on the center of the page
     // const { width2, height2 } = img.scale(1);
-    page2.drawImage(img, {
-        x: page.getWidth() / 2 - jpgDims.width / 2,
-        y: page.getHeight() / 2 - jpgDims.height / 2,
-        width: jpgDims.width,
-        height: jpgDims.height,
+    // page2.drawImage(img, {
+    //     x: page2.getWidth() / 2 - jpgDims.width / 2,
+    //     y: page2.getHeight() / 2 - jpgDims.height / 2,
+    //     width: jpgDims.width,
+    //     height: jpgDims.height,
 
-    });
+    // });
     // Write the PDF to a file
-    // fs.writeFileSync("./upload/test.pdf", await pdfDoc.save());
     fs.writeFile(
         "./upload/" + uuidv4() + '.pdf',
         await pdfDoc.save(),
@@ -123,7 +134,7 @@ async function makePdf() {
 }
 
 // creating object
-const chatData = { 'name': '', 'update': '', 'issue': '', 'observation': '' };
+const chatData = { 'name': '', 'update': '', 'issue': '', 'observation': '', 'media': [] };
 const SESSION_FILE_PATH = './session.json';
 
 // holding the session info
@@ -132,17 +143,6 @@ if (fs.existsSync(SESSION_FILE_PATH)) {
     sessionCfg = require(SESSION_FILE_PATH);
 }
 const client = new Client({ puppeteer: { headless: false }, session: sessionCfg });
-// const client = new Client()
-// client.on('ready', async () => {
-//     console.log('Client is ready!');
-//     const chat = await client.getChats();
-//     sendMsg = await chat.find(c => c.name == 'Testing')
-//     client.sendMessage(sendMsg._serialized, "hello,automated")
-// });
-
-// client.on('message', message => {
-//     console.log(message.body);
-// });
 client.initialize();
 
 // generate qr
@@ -191,7 +191,6 @@ client.on('message', async message => {
     if (message.hasMedia) {
         const media = await message.downloadMedia();
         // console.log(media);
-        client.sendMessage(message.from, 'If you came across any issues please write on that.');
         let fileName;
         if (media.filename === undefined) {
             extension = media.mimetype.includes("audio/ogg; codecs=opus") ? `mp3` : `${media.mimetype.split('/')[1]}`
@@ -199,20 +198,24 @@ client.on('message', async message => {
         }
         console.log('got it')
         // console.log(chatData)
-        chatData["media"] = media;
+        chatData["media"].push(media);
 
-        fs.writeFile(
-            "./upload/" + media.filename,
-            media.data,
-            "base64",
-            function (err) {
-                if (err) {
-                    console.log(err);
-                }
-            }
-        );
-        // trial
+        // fs.writeFile(
+        //     "./upload/" + media.filename,
+        //     media.data,
+        //     "base64",
+        //     function (err) {
+        //         if (err) {
+        //             console.log(err);
+        //         }
+        //     }
+        // );
+        chatData['media'].length == 1 && client.sendMessage(message.from, 'share drive link.');
 
+    }
+    else if (message.body.startsWith('Link')) {
+        chatData['link'] = message.body
+        client.sendMessage(message.from, 'If you came across any issues please write on that.');
     }
     else if (message.body.startsWith('Yes')) {
         client.sendMessage(message.from, 'what are they?');
@@ -250,6 +253,7 @@ client.on('message', async message => {
         // console.log(chatData);
 
         client.sendMessage(message.from, 'Thank you');
+        makePdf()
         uploadToAirTable()
 
         setTimeout(() => {
