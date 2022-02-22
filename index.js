@@ -17,7 +17,7 @@ const base = Airtable.base(process.env.AIRTABLE_BASE);
 
 
 
-cron.schedule('15 1 * * 0-4,6', () => {
+cron.schedule('30 2 * * 0-4,6', () => {
     console.log('running a task every minute');
     chat();
 });
