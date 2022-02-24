@@ -17,12 +17,12 @@ const base = Airtable.base(process.env.AIRTABLE_BASE);
 
 
 
-cron.schedule('55 2 * * 0-4,6', () => {
-    console.log('running a task every minute');
-    chat();
-});
+// cron.schedule('55 2 * * 0-4,6', () => {
+//     console.log('running a task every minute');
+//     chat();
+// });
 
-function chat() {
+// function chat() {
     console.log('inside task');
 
     // airtable
@@ -270,4 +270,4 @@ function chat() {
     client.on('disconnected', (reason) => {
         console.log('Client was logged out', reason);
     });
-}
+// }
